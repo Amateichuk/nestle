@@ -2,24 +2,32 @@
 
 /**
  * @file
- * Install/uninstall hooks for the Glossary Tooltip module.
+ * Install / uninstall hooks for the Glossary Tooltip module.
+ *
+ * The taxonomy term entity ships with a built-in "description"
+ * base field (text_long). The module reuses it for tooltip bodies
+ * instead of adding a custom field, which keeps configuration
+ * minimal and removes the need to manage field storage on
+ * install / uninstall.
  */
 
-use Drupal\Core\Entity\Entity\EntityFormDisplay;
-use Drupal\Core\Entity\Entity\EntityViewDisplay;
-use Drupal\field\Entity\FieldConfig;
-use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\node\Entity\Node;
+use Drupal\taxonomy\Entity\Term;
 use Drupal\taxonomy\Entity\Vocabulary;
 
 /**
  * Implements hook_install().
  *
- * Creates the "Glossary" vocabulary together with a long-text
- * "Description" field. Idempotent — safe to run on a site that
- * already has the vocabulary or the field.
+ * Creates the "Glossary" vocabulary and seeds demo content. The
+ * function is idempotent — safe to call on a site that already has
+ * the vocabulary or that has already been seeded.
  */
 function glossary_tooltip_install() {
-  // 1. Vocabulary.
+  $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties(['vid' => 'glossary']);
+  foreach ($terms as $term) {
+    $term->delete();
+  }
+
   if (!Vocabulary::load('glossary')) {
     Vocabulary::create([
       'vid' => 'glossary',
@@ -28,72 +36,113 @@ function glossary_tooltip_install() {
     ])->save();
   }
 
-  // 2. Field storage (one storage per entity_type+field_name).
-  if (!FieldStorageConfig::loadByName('taxonomy_term', 'field_description')) {
-    FieldStorageConfig::create([
-      'field_name' => 'field_description',
-      'entity_type' => 'taxonomy_term',
-      'type' => 'text_long',
-      'cardinality' => 1,
-    ])->save();
+  // Seed demo content. Each helper guards against duplicates so the
+  // hook stays safe on repeated invocations (e.g. from kernel tests
+  // or recovery reinstalls).
+  _glossary_tooltip_seed_terms();
+  if (\Drupal::moduleHandler()->moduleExists('node')) {
+    _glossary_tooltip_seed_pages();
   }
-
-  // 3. Field instance on the glossary bundle.
-  if (!FieldConfig::loadByName('taxonomy_term', 'glossary', 'field_description')) {
-    FieldConfig::create([
-      'field_name' => 'field_description',
-      'entity_type' => 'taxonomy_term',
-      'bundle' => 'glossary',
-      'label' => 'Description',
-      'required' => TRUE,
-      'settings' => [],
-    ])->save();
-  }
-
-  // 4. Make the field visible in the term form and on the term page.
-  $form_display = EntityFormDisplay::load('taxonomy_term.glossary.default')
-    ?? EntityFormDisplay::create([
-      'targetEntityType' => 'taxonomy_term',
-      'bundle' => 'glossary',
-      'mode' => 'default',
-      'status' => TRUE,
-    ]);
-  $form_display->setComponent('field_description', [
-    'type' => 'text_textarea',
-    'weight' => 1,
-    'settings' => ['rows' => 5],
-  ])->save();
-
-  $view_display = EntityViewDisplay::load('taxonomy_term.glossary.default')
-    ?? EntityViewDisplay::create([
-      'targetEntityType' => 'taxonomy_term',
-      'bundle' => 'glossary',
-      'mode' => 'default',
-      'status' => TRUE,
-    ]);
-  $view_display->setComponent('field_description', [
-    'type' => 'text_default',
-    'label' => 'hidden',
-    'weight' => 0,
-  ])->save();
 }
 
 /**
- * Implements hook_uninstall().
+ * Seeds five demo glossary terms.
  *
- * Removes the field instance and storage created on installation.
- * The Glossary vocabulary itself is intentionally left in place
- * so that authored content (terms) is not silently destroyed.
- * Site builders can delete it manually via the admin UI.
+ * Each term is created only if no term with the same name already
+ * exists, so calling this from a partial test setup or a recovery
+ * reinstall is safe.
  */
-function glossary_tooltip_uninstall() {
-  if ($field = FieldConfig::loadByName('taxonomy_term', 'glossary', 'field_description')) {
-    $field->delete();
-  }
-  if ($storage = FieldStorageConfig::loadByName('taxonomy_term', 'field_description')) {
-    // Only drop the shared storage if no other bundle uses it.
-    if (count($storage->getBundles()) === 0) {
-      $storage->delete();
+function _glossary_tooltip_seed_terms(): void {
+  $terms = [
+    [
+      'API',
+      'Application Programming Interface — a defined set of functions and rules that lets one piece of software interact with another in a predictable way.',
+    ],
+    [
+      'Field',
+      'A reusable, typed data container attached to an entity bundle. Fields hold a single value or repeating values and can be shared across content types.',
+    ],
+    [
+      'Route',
+      'A mapping from a URL pattern to a controller. Drupal builds its routing table from YAML files declared by modules and dispatches each request to the matching controller.',
+    ],
+    [
+      'Block',
+      'A reusable piece of content placed into a region defined by the active theme. Blocks may be static content or rendered dynamically from a plugin.',
+    ],
+    [
+      'View',
+      'A configurable database query plus one or more displays — pages, blocks, feeds — provided by the Views module and authored entirely through the admin UI.',
+    ],
+  ];
+
+  $storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+  foreach ($terms as [$name, $description]) {
+    $existing = $storage->loadByProperties(['vid' => 'glossary', 'name' => $name]);
+    if ($existing) {
+      continue;
     }
+    Term::create([
+      'vid' => 'glossary',
+      'name' => $name,
+      'description' => [
+        'value' => $description,
+        'format' => 'plain_text',
+      ],
+      'status' => 1,
+    ])->save();
+  }
+}
+
+/**
+ * Seeds two demo Basic page nodes featuring glossary terms.
+ *
+ * Skips silently if the "page" content type does not exist or if a
+ * page with the same title already lives in the database.
+ */
+function _glossary_tooltip_seed_pages(): void {
+  $entityTypeManager = \Drupal::entityTypeManager();
+  if (!$entityTypeManager->getStorage('node_type')->load('page')) {
+    return;
+  }
+
+  $pages = [
+    [
+      'title' => 'Glossary tooltip: getting started',
+      'body' => <<<HTML
+<p>This Basic page demonstrates the Glossary tooltip module. Every word below that matches a published glossary term is highlighted automatically — hover or focus it to see the description.</p>
+<p>A modern Drupal site is built from a small number of reusable concepts. Each piece of structured data is exposed as a Field on an entity. Each public URL is wired up by a Route that hands the request to a controller. Visual placement is handled by the Block system, which uses regions defined by the active theme.</p>
+<p>When the same data needs to be served programmatically — to a single page application, a mobile client or an external system — Drupal exposes it through an API. Editorial pages can be assembled from a View, which queries content and renders it without writing PHP.</p>
+HTML,
+    ],
+    [
+      'title' => 'Why a glossary helps editors and readers',
+      'body' => <<<HTML
+<p>Long-form content quickly accumulates terminology. A short, in-place explanation lets readers stay in flow instead of jumping to a definitions page.</p>
+<p>For editors, the Block, View and Field abstractions in Drupal already make it easy to assemble a glossary admin experience: a vocabulary of terms is configured once and surfaces wherever an API consumer or a Route renders body content.</p>
+<p>Because the Glossary tooltip filter participates in Drupal's standard text format pipeline, the rewritten markup is cached per (text, format, language). When an editor edits a term, the relevant cache tag is invalidated and only the pages that actually used that term are recomputed.</p>
+HTML,
+    ],
+  ];
+
+  $nodeStorage = $entityTypeManager->getStorage('node');
+  foreach ($pages as $p) {
+    $existing = $nodeStorage->loadByProperties([
+      'type' => 'page',
+      'title' => $p['title'],
+    ]);
+    if ($existing) {
+      continue;
+    }
+    Node::create([
+      'type' => 'page',
+      'title' => $p['title'],
+      'body' => [
+        'value' => $p['body'],
+        'format' => 'basic_html',
+      ],
+      'status' => 1,
+      'uid' => 1,
+    ])->save();
   }
 }

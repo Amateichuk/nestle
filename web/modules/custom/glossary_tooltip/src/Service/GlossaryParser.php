@@ -350,10 +350,9 @@ final class GlossaryParser implements GlossaryParserInterface {
         if ($name === '') {
           continue;
         }
-        $raw = '';
-        if ($term->hasField('field_description') && !$term->get('field_description')->isEmpty()) {
-          $raw = (string) $term->get('field_description')->value;
-        }
+        // The taxonomy term entity ships with a built-in "description"
+        // base field — no custom field is needed for the tooltip body.
+        $raw = (string) ($term->getDescription() ?? '');
         $plain = trim(preg_replace('/\s+/u', ' ', strip_tags($raw)) ?? '');
         $truncated = mb_strlen($plain) > self::TOOLTIP_LIMIT;
         $display = $truncated
