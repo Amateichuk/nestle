@@ -1,0 +1,99 @@
+<?php
+
+/**
+ * @file
+ * Install/uninstall hooks for the Glossary Tooltip module.
+ */
+
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\Core\Entity\Entity\EntityViewDisplay;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\taxonomy\Entity\Vocabulary;
+
+/**
+ * Implements hook_install().
+ *
+ * Creates the "Glossary" vocabulary together with a long-text
+ * "Description" field. Idempotent — safe to run on a site that
+ * already has the vocabulary or the field.
+ */
+function glossary_tooltip_install() {
+  // 1. Vocabulary.
+  if (!Vocabulary::load('glossary')) {
+    Vocabulary::create([
+      'vid' => 'glossary',
+      'name' => 'Glossary',
+      'description' => 'Glossary terms shown as tooltips inside site content.',
+    ])->save();
+  }
+
+  // 2. Field storage (one storage per entity_type+field_name).
+  if (!FieldStorageConfig::loadByName('taxonomy_term', 'field_description')) {
+    FieldStorageConfig::create([
+      'field_name' => 'field_description',
+      'entity_type' => 'taxonomy_term',
+      'type' => 'text_long',
+      'cardinality' => 1,
+    ])->save();
+  }
+
+  // 3. Field instance on the glossary bundle.
+  if (!FieldConfig::loadByName('taxonomy_term', 'glossary', 'field_description')) {
+    FieldConfig::create([
+      'field_name' => 'field_description',
+      'entity_type' => 'taxonomy_term',
+      'bundle' => 'glossary',
+      'label' => 'Description',
+      'required' => TRUE,
+      'settings' => [],
+    ])->save();
+  }
+
+  // 4. Make the field visible in the term form and on the term page.
+  $form_display = EntityFormDisplay::load('taxonomy_term.glossary.default')
+    ?? EntityFormDisplay::create([
+      'targetEntityType' => 'taxonomy_term',
+      'bundle' => 'glossary',
+      'mode' => 'default',
+      'status' => TRUE,
+    ]);
+  $form_display->setComponent('field_description', [
+    'type' => 'text_textarea',
+    'weight' => 1,
+    'settings' => ['rows' => 5],
+  ])->save();
+
+  $view_display = EntityViewDisplay::load('taxonomy_term.glossary.default')
+    ?? EntityViewDisplay::create([
+      'targetEntityType' => 'taxonomy_term',
+      'bundle' => 'glossary',
+      'mode' => 'default',
+      'status' => TRUE,
+    ]);
+  $view_display->setComponent('field_description', [
+    'type' => 'text_default',
+    'label' => 'hidden',
+    'weight' => 0,
+  ])->save();
+}
+
+/**
+ * Implements hook_uninstall().
+ *
+ * Removes the field instance and storage created on installation.
+ * The Glossary vocabulary itself is intentionally left in place
+ * so that authored content (terms) is not silently destroyed.
+ * Site builders can delete it manually via the admin UI.
+ */
+function glossary_tooltip_uninstall() {
+  if ($field = FieldConfig::loadByName('taxonomy_term', 'glossary', 'field_description')) {
+    $field->delete();
+  }
+  if ($storage = FieldStorageConfig::loadByName('taxonomy_term', 'field_description')) {
+    // Only drop the shared storage if no other bundle uses it.
+    if (count($storage->getBundles()) === 0) {
+      $storage->delete();
+    }
+  }
+}

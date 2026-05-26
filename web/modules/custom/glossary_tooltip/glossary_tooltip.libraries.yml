@@ -1,0 +1,10 @@
+tooltip:
+  version: 1.x
+  css:
+    component:
+      css/glossary-tooltip.css: {}
+  js:
+    js/glossary-tooltip.js: {}
+  dependencies:
+    - core/drupal
+    - core/once

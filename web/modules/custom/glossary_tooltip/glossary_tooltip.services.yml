@@ -1,0 +1,7 @@
+services:
+  glossary_tooltip.parser:
+    class: Drupal\glossary_tooltip\Service\GlossaryParser
+    arguments:
+      - '@entity_type.manager'
+      - '@cache.default'
+      - '@logger.factory'

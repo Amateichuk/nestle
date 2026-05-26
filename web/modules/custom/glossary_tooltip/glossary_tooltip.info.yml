@@ -1,0 +1,10 @@
+name: Glossary Tooltip
+type: module
+description: 'Automatically highlights words and phrases that match glossary vocabulary entries within site content and shows their description in a tooltip.'
+package: Custom
+core_version_requirement: ^9
+dependencies:
+  - drupal:taxonomy
+  - drupal:filter
+  - drupal:text
+  - drupal:field

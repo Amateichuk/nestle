@@ -1,0 +1,65 @@
+<?php
+
+/**
+ * @file
+ * Glue between the Glossary Tooltip module and Drupal hooks.
+ *
+ * The heavy logic lives in the GlossaryParser service and in the
+ * filter_glossary_tooltip filter plugin. This file is intentionally
+ * small and only wires up cache invalidation + a help page.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Cache\Cache;
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\glossary_tooltip\Service\GlossaryParser;
+use Drupal\taxonomy\TermInterface;
+
+/**
+ * Implements hook_help().
+ */
+function glossary_tooltip_help(string $route_name, RouteMatchInterface $route_match): ?string {
+  if ($route_name !== 'help.page.glossary_tooltip') {
+    return NULL;
+  }
+  return '<p>' . t('Enable the "Glossary tooltip" filter on any text format (Administration » Configuration » Content authoring » Text formats). Words that match a published term in the <em>Glossary</em> vocabulary will be highlighted on the rendered page and the term description shown as a tooltip.') . '</p>';
+}
+
+/**
+ * Implements hook_taxonomy_term_insert().
+ */
+function glossary_tooltip_taxonomy_term_insert(TermInterface $term): void {
+  _glossary_tooltip_invalidate_for($term);
+}
+
+/**
+ * Implements hook_taxonomy_term_update().
+ */
+function glossary_tooltip_taxonomy_term_update(TermInterface $term): void {
+  _glossary_tooltip_invalidate_for($term);
+}
+
+/**
+ * Implements hook_taxonomy_term_delete().
+ */
+function glossary_tooltip_taxonomy_term_delete(TermInterface $term): void {
+  _glossary_tooltip_invalidate_for($term);
+}
+
+/**
+ * Invalidates the glossary index cache tag when a glossary term changes.
+ *
+ * Filter-result cache, render cache and dynamic page cache all observe
+ * the same tag, so a single invalidate() call refreshes every cached
+ * page that contained a glossary tooltip.
+ */
+function _glossary_tooltip_invalidate_for(TermInterface $term): void {
+  if ($term->bundle() !== GlossaryParser::VID) {
+    return;
+  }
+  Cache::invalidateTags([GlossaryParser::CACHE_TAG]);
+  if (\Drupal::hasService('glossary_tooltip.parser')) {
+    \Drupal::service('glossary_tooltip.parser')->resetStatic();
+  }
+}

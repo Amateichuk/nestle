@@ -1,0 +1,60 @@
+/**
+ * Glossary Tooltip
+ *
+ * Pure CSS tooltip; JS only handles the optional "Read more" link
+ * and basic positioning corrections near viewport edges.
+ */
+
+.glossary-tooltip {
+  position: relative;
+  display: inline;
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+  outline: none;
+}
+
+.glossary-tooltip:focus,
+.glossary-tooltip:hover {
+  background-color: rgba(0, 116, 189, 0.08);
+}
+
+.glossary-tooltip .glossary-tooltip__bubble {
+  position: absolute;
+  z-index: 1000;
+  left: 0;
+  top: calc(100% + 6px);
+  min-width: 180px;
+  max-width: 320px;
+  padding: 8px 10px;
+  background: #1f2937;
+  color: #f9fafb;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+  white-space: normal;
+}
+
+.glossary-tooltip:hover .glossary-tooltip__bubble,
+.glossary-tooltip:focus .glossary-tooltip__bubble,
+.glossary-tooltip:focus-within .glossary-tooltip__bubble {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.glossary-tooltip__bubble a.glossary-tooltip__more {
+  display: inline-block;
+  margin-top: 4px;
+  color: #93c5fd;
+  text-decoration: underline;
+}
+
+.glossary-tooltip__bubble--right {
+  left: auto;
+  right: 0;
+}

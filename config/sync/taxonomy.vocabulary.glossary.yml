@@ -1,0 +1,8 @@
+uuid: 14953002-1d83-4267-aefe-02c946f302c8
+langcode: en
+status: true
+dependencies: {  }
+name: Glossary
+vid: glossary
+description: 'Glossary terms shown as tooltips inside site content.'
+weight: 0
