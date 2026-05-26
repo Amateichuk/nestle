@@ -36,7 +36,8 @@
         },
         "sort-packages": true,
         "audit": {
-            "abandoned": "ignore"
+            "abandoned": "ignore",
+            "block-insecure": false
         }
     },
     "extra": {
@@ -95,5 +96,9 @@
                 "      composer remove drupal/core-project-message"
             ]
         }
+    },
+    "require-dev": {
+        "drupal/core-dev": "^9",
+        "phpspec/prophecy-phpunit": "^2"
     }
 }

@@ -8,6 +8,7 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\filter\FilterProcessResult;
 use Drupal\filter\Plugin\FilterBase;
 use Drupal\glossary_tooltip\Service\GlossaryParser;
+use Drupal\glossary_tooltip\Service\GlossaryParserInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -39,7 +40,7 @@ final class FilterGlossaryTooltip extends FilterBase implements ContainerFactory
     array $configuration,
     string $plugin_id,
     array $plugin_definition,
-    private readonly GlossaryParser $parser,
+    private readonly GlossaryParserInterface $parser,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
   }

@@ -35,7 +35,7 @@ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
  *    is wrapped. This keeps the page readable when the same word
  *    repeats many times in a long article and bounds the work done.
  */
-final class GlossaryParser {
+final class GlossaryParser implements GlossaryParserInterface {
 
   /**
    * Vocabulary id of the glossary.
